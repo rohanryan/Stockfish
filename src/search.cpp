@@ -385,8 +385,15 @@ void Thread::search(bool isMainThread) {
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
       // Set up the new depth for the helper threads
+	  int availRatio = 50;
+	  TUNE(SetRange(10, 200),availRatio);
       if (!isMainThread)
-          rootDepth = Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx)));
+	  {
+		if (Limits.use_time_management() && Time.elapsed() > Time.available() * 10 / availRatio)
+			rootDepth = Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx)))/2;
+		else
+			rootDepth = Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx)));
+		  }
 
       // Age out PV variability metric
       if (isMainThread)
