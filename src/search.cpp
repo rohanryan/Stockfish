@@ -346,6 +346,9 @@ void MainThread::think() {
   std::cout << sync_endl;
 }
 
+int availRatio = 50;
+TUNE(SetRange(10, 200),availRatio);
+
 
 // Thread::search() is the main iterative deepening loop. It calls search()
 // repeatedly with increasing depth until the allocated thinking time has been
@@ -388,8 +391,6 @@ void Thread::search(bool isMainThread) {
 	  
       if (!isMainThread)
 	  {
-		int availRatio = 50;
-		TUNE(SetRange(10, 200),availRatio);
 		if (Limits.use_time_management() && Time.elapsed() > (Time.available() * 10 / availRatio))
 			rootDepth = Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx)))/2;
 		else
