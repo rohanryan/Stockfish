@@ -386,7 +386,20 @@ void Thread::search(bool isMainThread) {
   {
       // Set up the new depth for the helper threads
       if (!isMainThread)
-          rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx))));
+        {
+		// depthRatio is normally 1. As the chess engine runs out of time, this will move towards 0.
+		double depthRatio = 1.0;
+		if (Limits.use_time_management())
+			{
+			if (Time.available() > Time.elapsed())
+				depthRatio = log((double)Time.available()/(double)Time.elapsed() - 1.0) * 1.1 / (2.03 * log(Options["Threads"]));
+			else
+			    depthRatio = 0.0;
+			if (depthRatio > 1.0)
+			    depthRatio = 1.0;
+			}
+		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(std::round(2.03 * log(1 + this->idx) * depthRatio)));
+        }
 
       // Age out PV variability metric
       if (isMainThread)
