@@ -392,13 +392,13 @@ void Thread::search(bool isMainThread) {
 		if (Limits.use_time_management())
 			{
 			if (Time.available() > Time.elapsed())
-				depthRatio = log((double)Time.available()/(double)Time.elapsed() - 1.0) * 1.6 / (2.2 * log(Options["Threads"]));
+				depthRatio = log((double)Time.available()/(double)Time.elapsed() - 1.0) * 1.1 / (2.03 * log(Options["Threads"]));
 			else
 			    depthRatio = 0.0;
 			if (depthRatio > 1.0)
-			    depthRatio = 1;
+			    depthRatio = 1.0;
 			}
-		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx) * depthRatio)));
+		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(std::round(2.03 * log(1 + this->idx) * depthRatio)));
         }
 
       // Age out PV variability metric
