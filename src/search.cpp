@@ -399,7 +399,7 @@ void Thread::search() {
 			if (depthRatio > 1.0)
 			    depthRatio = 1.0;
 			}
-		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(std::round(2.03 * log(1 + this->idx) * depthRatio)));
+		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(std::min(1,(int)std::round(2.03 * log(1 + this->idx) * depthRatio))));
         }
 
       // Age out PV variability metric
