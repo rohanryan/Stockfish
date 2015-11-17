@@ -390,8 +390,8 @@ void Thread::search() {
         {
 		// Don't let helper thread depth exceed the depth permitted by available time.
 		int additionalDepth = (int)std::round(2.03 * log(1 + this->idx));
-		//if (Limits.use_time_management() && Time.available() > Time.elapsed() && Time.available() < Time.elapsed() * 50)
-			//additionalDepth = std::min(additionalDepth,(int)std::round(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 1.5));
+		if (Limits.use_time_management() && Time.available() > Time.elapsed() && Time.available() < Time.elapsed() * 50)
+			additionalDepth = std::min(additionalDepth,(int)std::round(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 1.5));
 		rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(additionalDepth));
         }
 
