@@ -219,6 +219,10 @@ uint64_t Search::perft(Position& pos, Depth depth) {
 
 template uint64_t Search::perft<true>(Position&, Depth);
 
+int searchCount = 0;
+int threadSearch[128];
+int globalRoot = 0;
+int depthIncrement[2] = {1,0};
 
 /// MainThread::search() is called by the main thread when the program receives
 /// the UCI 'go' command. It searches from root position and at the end prints
@@ -285,6 +289,9 @@ void MainThread::search() {
                                                       :  VALUE_DRAW;
           }
       }
+      
+      searchCount = 0;
+      globalRoot = 1;
 
       for (Thread* th : Threads)
       {
@@ -329,7 +336,7 @@ void MainThread::search() {
   // Check if there are threads with a better score than main thread.
   Thread* bestThread = this;
   for (Thread* th : Threads)
-      if (   th->completedDepth > bestThread->completedDepth
+      if (   th->completedDepth >= bestThread->completedDepth
           && th->rootMoves[0].score > bestThread->rootMoves[0].score)
         bestThread = th;
 
@@ -385,9 +392,11 @@ void Thread::search() {
   // Iterative deepening loop until requested to stop or target depth reached
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
-      // Set up the new depth for the helper threads
-      if (!isMainThread)
-          rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx))));
+      searchCount++;
+      int saveSearchCount = searchCount;
+      globalRoot = globalRoot + depthIncrement[saveSearchCount % 2];
+      rootDepth = std::min(DEPTH_MAX - ONE_PLY, Depth(globalRoot));
+      
 
       // Age out PV variability metric
       if (isMainThread)
@@ -484,7 +493,12 @@ void Thread::search() {
       }
 
       if (!Signals.stop)
+      {
           completedDepth = rootDepth;
+          threadSearch[this->idx] = saveSearchCount; 
+          sync_cout << "Thread:" << this-idx << " Started:" << saveSearchCount << " Completed:" << completedDepth << sync_endl;
+      }
+          
 
       if (!isMainThread)
           continue;
