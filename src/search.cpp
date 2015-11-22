@@ -221,8 +221,8 @@ template uint64_t Search::perft<true>(Position&, Depth);
 
 int searchCount = 0;
 int threadSearch[128];
-int globalRoot = 0;
-int depthIncrement[2] = {1,0};
+int depthIncrement[24] = {1,2,3,3,3,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,7};
+int lowestCompletedDepth = 0;
 
 /// MainThread::search() is called by the main thread when the program receives
 /// the UCI 'go' command. It searches from root position and at the end prints
@@ -291,7 +291,7 @@ void MainThread::search() {
       }
       
       searchCount = 0;
-      globalRoot = 1;
+      lowestCompletedDepth = 0;
 
       for (Thread* th : Threads)
       {
@@ -336,7 +336,7 @@ void MainThread::search() {
   // Check if there are threads with a better score than main thread.
   Thread* bestThread = this;
   for (Thread* th : Threads)
-      if (   th->completedDepth >= bestThread->completedDepth
+      if (   th->completedDepth > bestThread->completedDepth
           && th->rootMoves[0].score > bestThread->rootMoves[0].score)
         bestThread = th;
 
@@ -392,10 +392,26 @@ void Thread::search() {
   // Iterative deepening loop until requested to stop or target depth reached
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
-      searchCount++;
-      int saveSearchCount = searchCount;
-      globalRoot = globalRoot + depthIncrement[saveSearchCount % 2];
-      rootDepth = std::min(DEPTH_MAX - ONE_PLY, Depth(globalRoot));
+      int saveSearchCount;
+      if (!isMainThread)
+      {          
+          saveSearchCount = searchCount;
+          searchCount = (searchCount + 1) % (Options["Threads"]-1);
+          //if(Limits.use_time_management() && Time.elapsed() < Time.available() && Time.available() < Time.elapsed() * 100)
+          //{
+          //    if(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 2.0 < depthIncrement[saveSearchCount])
+          //    {
+          //        saveSearchCount = 0;
+          //        searchCount = 1;
+          //    }
+          //}
+          rootDepth = std::min(DEPTH_MAX - ONE_PLY, Depth(lowestCompletedDepth + depthIncrement[saveSearchCount]));
+      }
+      else
+      {
+          if(rootDepth <= lowestCompletedDepth)
+              rootDepth = std::min(DEPTH_MAX - ONE_PLY,Depth(lowestCompletedDepth + 1));
+      }
       
 
       // Age out PV variability metric
@@ -495,8 +511,11 @@ void Thread::search() {
       if (!Signals.stop)
       {
           completedDepth = rootDepth;
-          threadSearch[this->idx] = saveSearchCount; 
-          sync_cout << "Thread:" << this-idx << " Started:" << saveSearchCount << " Completed:" << completedDepth << sync_endl;
+          if(completedDepth > lowestCompletedDepth)
+              lowestCompletedDepth = completedDepth;
+          threadSearch[this->idx] = completedDepth;
+          if (!isMainThread)
+              sync_cout << "Thread:" << this-idx << " Started:" << saveSearchCount << " Completed:" << completedDepth << sync_endl;
       }
           
 
