@@ -392,6 +392,7 @@ void Thread::search() {
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
       // Set up the new depth for the helper threads
+      int saveSearchCount;
       if (!isMainThread)
       {          
           saveSearchCount = searchCount;
