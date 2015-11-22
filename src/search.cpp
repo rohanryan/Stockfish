@@ -221,7 +221,7 @@ template uint64_t Search::perft<true>(Position&, Depth);
 
 int searchCount = 0;
 int threadSearch[128];
-int depthIncrement[24] = {1,2,3,3,3,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,7};
+int depthIncrement[24] = {0,1,2,3,3,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,7};
 int lowestCompletedDepth = 0;
 
 /// MainThread::search() is called by the main thread when the program receives
