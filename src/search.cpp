@@ -221,7 +221,7 @@ template uint64_t Search::perft<true>(Position&, Depth);
 
 int searchCount = 0;
 int threadSearch[128];
-int depthIncrement[24] = {0,1,2,3,3,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,7};
+int depthIncrement[24] = {1,2,3,3,4,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,7};
 int lowestCompletedDepth = 0;
 
 /// MainThread::search() is called by the main thread when the program receives
@@ -397,20 +397,20 @@ void Thread::search() {
       {          
           saveSearchCount = searchCount;
           searchCount = (searchCount + 1) % (Options["Threads"]-1);
-          //if(Limits.use_time_management() && Time.elapsed() < Time.available() && Time.available() < Time.elapsed() * 100)
-          //{
-          //    if(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 2.0 < depthIncrement[saveSearchCount])
-          //    {
-          //        saveSearchCount = 0;
-          //        searchCount = 1;
-          //    }
-          //}
+          if(Limits.use_time_management() && Time.elapsed() < Time.available() && Time.available() < Time.elapsed() * 100)
+          {
+              if(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 2.5 < depthIncrement[saveSearchCount])
+              {
+                  saveSearchCount = 0;
+                  searchCount = 1;
+              }
+          }
           rootDepth = std::min(DEPTH_MAX - ONE_PLY, Depth(lowestCompletedDepth + depthIncrement[saveSearchCount]));
       }
       else
       {
-          if(rootDepth <= lowestCompletedDepth)
-              rootDepth = std::min(DEPTH_MAX - ONE_PLY,Depth(lowestCompletedDepth + 1));
+          if(rootDepth < lowestCompletedDepth)
+              rootDepth = std::min(DEPTH_MAX - ONE_PLY,Depth(lowestCompletedDepth));
       }
 
 
