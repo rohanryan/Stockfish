@@ -219,6 +219,8 @@ uint64_t Search::perft(Position& pos, Depth depth) {
 
 template uint64_t Search::perft<true>(Position&, Depth);
 
+int initialHelperDepthIncrement[24]={1,2,3,3,3,3,4,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,7};
+int helperIncrement = 0;
 
 /// MainThread::search() is called by the main thread when the program receives
 /// the UCI 'go' command. It searches from root position and at the end prints
@@ -285,6 +287,8 @@ void MainThread::search() {
                                                       :  VALUE_DRAW;
           }
       }
+      
+      helperIncrement = initialHelperDepthIncrement[Options["threads"]-1]-1;
 
       for (Thread* th : Threads)
       {
@@ -380,13 +384,30 @@ void Thread::search() {
       multiPV = std::max(multiPV, (size_t)4);
 
   multiPV = std::min(multiPV, rootMoves.size());
+  bool isInitialSearch = true;
 
   // Iterative deepening loop until requested to stop or target depth reached
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
       // Set up the new depth for the helper threads
       if (!isMainThread)
-          rootDepth = std::min(DEPTH_MAX - ONE_PLY, Threads.main()->rootDepth + Depth(int(2.2 * log(1 + this->idx))));
+      {
+          int helperDepth;
+          if (isInitialSearch)
+          {
+              helperDepth = 1 + initialHelperDepthIncrement[this->idx-1];
+              isInitialSearch = false;
+          }
+          else
+          {
+              if(Limits.use_time_management() && Time.elapsed() < Time.available() && Time.elapsed() * 100 > Time.available())
+                  while(log((double)Time.available()/(double)Time.elapsed()-1) * 1.0 < helperIncrement && helperIncrement > 1)
+                      helperIncrement--;
+              helperDepth = rootDepth + helperIncrement;
+          }
+          sync_cout << "Thread:" << this->idx << " Helper Depth: " << helperDepth << sync_endl;
+          rootDepth = std::min(DEPTH_MAX - ONE_PLY, Depth(helperDepth));
+      }
 
       // Age out PV variability metric
       if (isMainThread)
