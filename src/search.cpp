@@ -219,6 +219,7 @@ uint64_t Search::perft(Position& pos, Depth depth) {
 }
 
 template uint64_t Search::perft<true>(Position&, Depth);
+int helperSearchDepth, maxCompletedDepth, targetDepth, minSearchDepth;
 
 
 /// MainThread::search() is called by the main thread when the program receives
@@ -286,6 +287,11 @@ void MainThread::search() {
                                                       :  VALUE_DRAW;
           }
       }
+      
+      helperSearchDepth = 0;
+      maxCompletedDepth = 0;
+      minSearchDepth = helperSearchDepth + 1;
+      targetDepth = Options["Threads"]-1;
 
       for (Thread* th : Threads)
       {
@@ -387,29 +393,36 @@ void Thread::search() {
   // Iterative deepening loop until requested to stop or target depth reached
   while (++rootDepth < DEPTH_MAX && !Signals.stop && (!Limits.depth || rootDepth <= Limits.depth))
   {
-      // Set up the new depth for the helper threads skipping in average each
-      // 2nd ply (using a half density map similar to a Hadamard matrix).
+      // Set up the new depth for the helper threads
       if (!isMainThread)
       {
-          int d = rootDepth + rootPos.game_ply();
-
-          if (idx <= 6 || idx > 24)
+          helperSearchDepth = helperSearchDepth + 1;
+          if (helperSearchDepth > targetDepth)
           {
-              if (((d + idx) >> (msb(idx + 1) - 1)) % 2)
-                  continue;
+              targetDepth = targetDepth + 1;
+              minSearchDepth = maxCompletedDepth + 1;
+              helperSearchDepth = minSearchDepth;              
           }
-          else
+          else if (Limits.use_time_management() && Time.elapsed() * 100 > Time.available())
           {
-              // Table of values of 6 bits with 3 of them set
-              static const int HalfDensityMap[] = {
-                      0x07, 0x0b, 0x0d, 0x0e, 0x13, 0x16, 0x19, 0x1a, 0x1c,
-                      0x23, 0x25, 0x26, 0x29, 0x2c, 0x31, 0x32, 0x34, 0x38
-              };
-
-              if ((HalfDensityMap[idx - 7] >> (d % 6)) & 1)
-                  continue;
+              if (Time.elapsed() > Time.available())
+              {   
+                  helperSearchDepth = maxCompletedDepth + 1;
+                  if(maxCompletedDepth + 1 > targetDepth)
+                      targetDepth = maxCompletedDepth + 1;
+              }
+              else if( (int) std::round(log((double)Time.available()/(double)Time.elapsed() - 1.0) * 2.5) < helperSearchDepth - maxCompletedDepth)
+              {
+                  helperSearchDepth = maxCompletedDepth + 1;
+                  if(maxCompletedDepth + 1 > targetDepth)
+                      targetDepth = maxCompletedDepth + 1;
+              }
           }
+          rootDepth = (Depth) (helperSearchDepth) ;
+          sync_cout << "idx:" << idx << " RootDepth:" << helperSearchDepth << sync_endl;
       }
+      
+      
 
       // Age out PV variability metric
       if (isMainThread)
@@ -505,6 +518,9 @@ void Thread::search() {
               sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
       }
 
+      if (rootDepth > maxCompletedDepth)
+          maxCompletedDepth = rootDepth;
+      
       if (!Signals.stop)
           completedDepth = rootDepth;
 
